@@ -10,16 +10,16 @@ x_desired_mod = [];
 x_base_adjusted = [];
 
 % TODO: increase this term to 1000 to make sure controller is stable
-desired_wave_num = 5;
+desired_wave_num = 10;
 
-snr_db = 90;
+snr_db = 30;
 snr = 10^(snr_db/10);
 
-% Kp = 1.2;
+% Kp = 1.01;
 % Ki = 0.0025;
 % Kd = 0.001;
-Kp = 1;
-Ki = 0.0025;
+Kp = 1.5;
+Ki = 0.005;
 Kd = 0.001;
 integral = 0;
 previous_error = 0;
@@ -70,6 +70,8 @@ while true
 
     error = x_base_temp(max_index) - x_desired_mod(start_index + max_index - 1);
 
+    derivative_errors(i) = error - previous_error;
+
     [A_base_adjustment, integral, previous_error] = pid_controller(error, integral, previous_error, Kp, Ki, Kd);
 
     A_base = A_base - A_base_adjustment;
@@ -77,6 +79,8 @@ while true
     x_base_adjusted(start_index:end_index) = x_base_temp;
 
     errors(i) = error;
+    integral_errors(i) = integral;
+    
 
     i = i + 1;
 end
@@ -90,12 +94,22 @@ t_error = linspace(0, (length(errors)-1) / f_base, length(errors));
 
 subplot(2,1,1);
 hold on;
-plot(t_desired, x_desired_mod, 'r');
-% plot(t_desired, -x_desired_mod, 'r');
+plot(t_desired, x_desired_mod, 'r', 'LineWidth',2);
 plot(t_adjusted, x_base_adjusted, 'b');
+plot(t_desired, -x_desired_mod, 'r', 'LineWidth',2);
+legend("Target", "LRA signals")
+title("Signal")
+
 hold off;
 subplot(2,1,2);
-plot(t_error, errors);
+hold on;
+plot(t_error, errors, 'LineWidth',2);
+plot(t_error, integral_errors, 'LineWidth',2);
+plot(t_error, derivative_errors, 'LineWidth',2);
+legend("Error", "Integral Error", "Derivative Error")
+title("Error Curve")
+hold off;
+
 
 %%%%%%%%%%%%%%%%%
 %%% functions %%%
@@ -128,13 +142,23 @@ function [A_base_adjustment, integral, previous_error] = pid_controller(error, i
     derivative = error - previous_error;
    
     % limit intergral
-    integral_max = 1;
-    integral_min = -1;
+    integral_max = 2;
+    integral_min = -2;
     if integral > integral_max
         integral = integral_max;
     elseif integral < integral_min
          integral = integral_min;
     end
+
+    % limit derivative
+    derivative_max = 2;
+    derivative_min = -2;
+    if derivative > derivative_max
+       derivative = derivative_max;
+    elseif derivative < derivative_min
+       derivative = derivative_min;
+    end
+    
 
     A_base_adjustment = Kp * error + Ki * integral + Kd * derivative;
     previous_error = error;
